@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30517.126
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{6989167D-11E4-40FE-8C1A-2192A86A7E90}") = "exeramses", "exeramses.vfproj", "{669E67D7-B4C1-45AE-B060-5B7A9FABD16F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{669E67D7-B4C1-45AE-B060-5B7A9FABD16F}.Release|x64.ActiveCfg = Release|x64
+		{669E67D7-B4C1-45AE-B060-5B7A9FABD16F}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D6DC2577-02F0-4DEB-B704-68FC1758FE4E}
+	EndGlobalSection
+EndGlobal

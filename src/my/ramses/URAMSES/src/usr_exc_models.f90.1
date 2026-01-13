@@ -1,0 +1,9 @@
+subroutine assoc_exciter_ptr(modelname,exc_ptr)
+
+   use MODELING
+
+   implicit none
+
+   character(len=20), intent(in):: modelname
+   procedure(exciter), pointer, intent(out) :: exc_ptr
+   
