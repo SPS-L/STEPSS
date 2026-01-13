@@ -36,21 +36,21 @@ STEPSS (Static and Transient Electric Power System Simulator) is a Java-based GU
    ant build
    ```
 
-3. The compiled JAR file will be available in the `dist` folder as `ramses.jar`.
+3. The compiled JAR file will be available in the `dist` folder as `stepss.jar`.
 
 ### Running the Application
 
 To run the application from the command line:
 
 ```bash
-java -jar dist/ramses.jar
+java -jar dist/stepss.jar
 ```
 
 Or from the dist folder:
 
 ```bash
 cd dist
-java -jar ramses.jar
+java -jar stepss.jar
 ```
 
 ## Usage
