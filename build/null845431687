@@ -1,9 +1,0 @@
-Manifest-Version: 1.0
-Ant-Version: Apache Ant 1.10.14
-Created-By: 21.0.9+10-Ubuntu-124.04 (Ubuntu)
-Codebase: http://139.165.16.131/ramses/
-Application-Library-Allowable-Codebase: http://139.165.16.131/ramses/
-Caller-Allowable-Codebase: http://139.165.16.131/ramses/
-Permissions: all-permissions
-Application-Name: STEPSS
-
