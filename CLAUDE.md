@@ -28,5 +28,4 @@ git submodule add -b <default-branch> ../<repo-name>.git <repo-name>
 - Code changes belong in the component repos, not here. Work inside `stepss-<name>/` as a normal git repo: commit and push there first, then `git add stepss-<name>` and commit the pointer bump here. Never pin a commit that hasn't been pushed to the component's remote — it breaks cloning for everyone else.
 - Several components (cg-studio, docs, helios, ramses, uramses, userguide) have their own `CLAUDE.md`; those apply when working inside them.
 - A commit touching a `stepss-*` path in this repo is only ever a pointer (gitlink) change. If `git status` here shows a component as modified, that's uncommitted work inside the component — resolve it there.
-- This directory syncs via Synology Drive across machines, so component working trees may contain uncommitted edits made elsewhere. Don't discard or commit them without checking where they came from.
 - Never commit `.claude/` directories — one stray committed gitlink under `.claude/worktrees/` in a component previously broke `git clone --recurse-submodules` for the whole umbrella.
