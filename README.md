@@ -36,7 +36,7 @@ or over HTTPS:
 git clone --recurse-submodules https://github.com/SPS-L/stepss.git
 ```
 
-Submodule URLs are relative, so they use the same protocol you cloned the umbrella with. Private components require access to the SPS-L organization; without it they simply fail to fetch — initialize just the public ones with:
+Submodule URLs are relative, so they use the same protocol you cloned the umbrella with. Private components require access to the SPS-L organization; without it they simply fail to fetch; initialize just the public ones with:
 
 ```sh
 git submodule update --init stepss-uramses stepss-pyramses \
@@ -72,7 +72,7 @@ Platform-wide documentation lives at [stepss.sps-lab.org](https://stepss.sps-lab
 
 ## License
 
-This umbrella repository contains only submodule pointers and helper scripts. Each component is licensed individually — see the `LICENSE` file in each component repository (a mix of Apache-2.0, MIT, CC BY 4.0, and the STEPSS Academic Public License; private components are internal to SPS-L).
+This umbrella repository contains only submodule pointers and helper scripts. Each component is licensed individually. See the `LICENSE` file in each component repository (a mix of Apache-2.0, MIT, CC BY 4.0, and the STEPSS Academic Public License; private components are internal to SPS-L).
 
 ## Authors
 
