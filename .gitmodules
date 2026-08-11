@@ -18,9 +18,9 @@
 	path = stepss-pfc
 	url = ../stepss-pfc.git
 	branch = main
-[submodule "stepss-pyramses"]
-	path = stepss-pyramses
-	url = ../stepss-pyramses.git
+[submodule "stepss-python-ui"]
+	path = stepss-python-ui
+	url = ../stepss-python-ui.git
 	branch = master
 [submodule "stepss-ramses"]
 	path = stepss-ramses

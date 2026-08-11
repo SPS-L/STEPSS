@@ -10,7 +10,7 @@ This repository pulls in every component of the [STEPSS](https://stepss.sps-lab.
 |---|---|---|
 | [stepss-ramses](https://github.com/SPS-L/stepss-ramses) | private | RAMSES dynamic power system simulator (core engine) |
 | [stepss-uramses](https://github.com/SPS-L/stepss-uramses) | public | User-defined device models framework (custom Fortran model compilation) |
-| [stepss-pyramses](https://github.com/SPS-L/stepss-pyramses) | public | Python API/wrapper for RAMSES |
+| [stepss-python-ui](https://github.com/SPS-L/stepss-python-ui) | public | Python API/wrapper for RAMSES, published as the `stepss` PyPI package |
 | [stepss-java-ui](https://github.com/SPS-L/stepss-java-ui) | public | Java-based GUI front-end |
 | [stepss-helios](https://github.com/SPS-L/stepss-helios) | private | Modern C++ power-flow engine (successor to PFC; TUI + C API) |
 | [stepss-pfc](https://github.com/SPS-L/stepss-pfc) | private | Power flow computation |
@@ -39,7 +39,7 @@ git clone --recurse-submodules https://github.com/SPS-L/stepss.git
 Submodule URLs are relative, so they use the same protocol you cloned the umbrella with. Private components require access to the SPS-L organization; without it they simply fail to fetch; initialize just the public ones with:
 
 ```sh
-git submodule update --init stepss-uramses stepss-pyramses \
+git submodule update --init stepss-uramses stepss-python-ui \
   stepss-java-ui stepss-cg-studio stepss-eigenanalysis stepss-RamsesNN \
   stepss-docs stepss-userguide
 ```
