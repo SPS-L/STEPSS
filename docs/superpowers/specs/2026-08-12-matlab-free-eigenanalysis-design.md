@@ -155,11 +155,21 @@ Steps:
    differentiates, so `E` is diagonal 0/1.
 2. Extract the four blocks `fx` (Nx by Nx), `fy` (Nx by Na), `gx` (Na by Nx),
    `gy` (Na by Na) from the assembled COO arrays.
-3. Factor `gy` **once** through the existing `sparse_solvers.f90` dispatch
-   (`ana_jacob`, `fac_jacob`), then perform `Nx` back-substitutions
-   (`subs_rhs`) to form `gy^-1 gx` as a dense Na by Nx array. If the
-   factorization reports singularity, abort with an error naming the index-1
-   assumption rather than returning garbage.
+3. Factor `gy` **once** with KLU, then perform `Nx` back-substitutions to form
+   `gy^-1 gx` as a dense Na by Nx array. If the factorization reports
+   singularity, abort with an error naming the index-1 assumption rather than
+   returning garbage.
+
+   This needs a **new entry point in the KLU wrapper**, which is not what an
+   earlier draft of this document assumed. `ana_jacob` and `fac_jacob` take
+   their matrix dimension and COO slice from global network state (`scheme`,
+   `adjacsubnet`, `nbnzel` at `src/linalg/i_KLU.f90:136-152`), so they can only
+   ever factor the network Jacobian, never an arbitrary submatrix such as `gy`.
+   The C layer underneath is already general: every `KLU_dll_*` entry takes an
+   instance index plus explicit CSC arrays. So the work is a Fortran-side
+   `factor_coo` / `solve_coo` pair on a reserved instance index, not a change to
+   KLU itself, and `sparse_solvers.f90` is bypassed because the MA41 backend
+   would not support this path anyway.
 4. Form `A_sys = fx - fy * (gy^-1 gx)` as a dense Nx by Nx array.
 5. Call `dgeev('V','V', ...)`, which returns eigenvalues plus **both** right and
    left eigenvectors in a single call with consistent ordering. This is the
