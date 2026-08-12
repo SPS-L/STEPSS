@@ -375,43 +375,156 @@ Apache-2.0 licence and its place in `.gitmodules`.
 
 ```
 stepss-eigenanalysis/
-  legacy/      the .m sources, kept for provenance
-  fixtures/    the three example input sets, unchanged
-  golden/      reference outputs captured from the MATLAB QZ path
+  legacy/      the .m sources, with the Octave fix of section 9.2
+  fixtures/    Kundur exports (both variants) and the two secondary fixtures
+  golden/      reference outputs captured through Octave
   tests/       pytest suite
 ```
 
-### 9.1 Golden capture, which must happen first
+The Kundur data itself stays in `stepss-test-systems` and is not duplicated
+here; only its exported Jacobian and the captured goldens live in `fixtures/`
+and `golden/`, so a RAMSES licence is not needed to run the test suite.
 
-The goldens can only be produced while MATLAB is still available. For each of
-the three fixtures, run the current `ssa(...)` with `real_limit = -inf` and
-export to text:
+### 9.1 Primary regression basis: Kundur two-area, with and without PSS
 
-- `A_sys` (the `Jdyn` variable), which isolates a reduction error from an
-  eigensolve error
-- eigenvalues (`eigenvalsQZ`)
-- right and left eigenvectors (`V_QZ`, `W_QZ`)
-- participation factors as computed by `analyze_results.m`
+`stepss-test-systems/stepss-Kundur-Two-Area-System` is the regression system.
+It already carries `$OMEGA_REF SYN` and `$SCHEME DE` in `solveroptions.dat`,
+which is exactly what the Jacobian export requires, and `dyn.dat` versus
+`dyn_noPSS.dat` differ in a single parameter (KSTAB 20.0 to 0.0 on all four
+exciters). The export was verified working: `Nx = 70`, 166 total variables, no
+NaN in either variant.
 
-**No implementation work starts before this is done and committed.**
+Measured with the scipy dense path at the pre-disturbance operating point:
 
-### 9.2 Tests
+| | inter-area | local, area 1 | local, area 2 |
+|---|---|---|---|
+| `dyn_noPSS.dat` | 0.625 Hz, zeta = **-0.0233** | 1.085 Hz, zeta = 0.0990 | 1.116 Hz, zeta = 0.0966 |
+| `dyn.dat` | 0.624 Hz, zeta = **+0.1087** | 1.242 Hz, zeta = 0.2880 | 1.295 Hz, zeta = 0.2865 |
 
-- engine `A_sys` against golden `A_sys`
-- Python dense `A_sys` against golden `A_sys`
-- engine and Python eigenvalues against golden eigenvalues, sorted by
-  descending real part then imaginary part
-- participation factors against golden, after max-normalization
-- Python shift-invert against Python dense, on the subset of modes within a
-  radius of sigma
-- residual check `||A_sys v - lambda v||` for every returned pair, which is an
-  implementation-independent correctness check that does not depend on the
-  goldens at all
+This is Kundur Example 12.6 reproduced. It is the right regression basis for
+three reasons:
 
-Tolerances: eigenvalues `rtol=1e-8`, participation factors `atol=1e-6`,
-residuals below `1e-10 * ||A_sys||`. These are stated as starting values to be
-confirmed against the fixtures during implementation; the residual check is the
-one that must hold unconditionally.
+1. **The sign of zeta on the inter-area mode flips with the PSS.** That is a
+   binary physical assertion, not a tolerance comparison, and no plausible
+   numerical drift can satisfy it accidentally.
+2. **It exercises the participation-factor path meaningfully.** Participation
+   over the four `omega` states separates the modes on its own: the 1.085 Hz
+   mode is `G2:0.99 G1:0.84 G3:0.04 G4:0.02` (area 1), the 1.116 Hz mode is
+   `G4:0.99 G3:0.84 G2:0.04 G1:0.02` (area 2), and the inter-area mode has all
+   four. A broken left-eigenvector unpacking (risk 1 in section 12) destroys
+   this separation visibly.
+3. It is small enough to run in every CI job, and it is a maintained,
+   Apache-2.0, properly cited submodule rather than an undocumented data blob.
+
+The existing `example/` fixtures are demoted to secondary parse-and-scale
+checks: `1link_island_*` (98 variables) and `test_*` (658 variables).
+
+### 9.2 Golden capture with Octave, verified
+
+MATLAB is **not** required. GNU Octave 8.4.0 runs the MATLAB pipeline with one
+fix, and the three-output `eig` convention was confirmed numerically rather
+than assumed:
+
+```
+right residual ||AV - VD||/||A|| = 1.170e-15
+left  residual ||W'A - DW'||/||A|| = 3.577e-15
+```
+
+so Octave's `W` satisfies MATLAB's documented `W'*A = D*W'`.
+
+The one required fix is at `scripts/init.m:56`. Octave will not implicitly
+assign an int32 into a sparse double matrix:
+
+```matlab
+gamma(idx) = double(raw_eqs{6}(idx));   % was: gamma(idx) = raw_eqs{6}(idx);
+```
+
+Apply it to the copy under `legacy/` so the capture stays reproducible. Capture
+the raw numerical data, not post-processed views: `A_sys` (the `Jdyn`
+variable), the eigenvalues, and the participation factors. Do **not** golden the
+eigenvectors themselves, because their scaling and phase are arbitrary.
+
+The scipy dense path has **already been cross-validated** against Octave on
+both secondary fixtures, before any implementation work:
+
+| fixture | `A_sys` rel. error | eigenvalue rel. error | PF (simple modes) |
+|---|---|---|---|
+| `1link_island_*` (Nx = 24) | 1.9e-16 | 8.4e-16 | 2.0e-13 |
+| `test_*` (Nx = 312) | 5.0e-19 | 1.7e-14 | 1.2e-08 |
+
+### 9.3 Degenerate eigenvalues, which the tests must handle
+
+Power system spectra are heavily degenerate, because identical device models
+with identical parameters produce identical poles. The `test_*` fixture has
+lambda = -200 with multiplicity 22, lambda = -314.159 with multiplicity 13,
+lambda = -1 with 6 and lambda = -0.2 with 3: 44 of 312 modes sit in degenerate
+clusters. Kundur has 8 such modes with the PSS and 20 without.
+
+**In a degenerate eigenspace individual eigenvectors are not unique**, so
+per-mode participation factors are basis-dependent and are not valid goldens.
+This is measured, not theoretical: splitting the `test_*` comparison by the gap
+to the nearest other eigenvalue gives
+
+```
+268 simple modes      max|dP| = 1.204e-08
+ 44 degenerate modes  max|dP| = 7.632e-01
+```
+
+The naive comparison would fail on day one and send someone hunting a
+non-existent bug. The tests therefore:
+
+- compare participation factors **only for modes whose gap to every other
+  eigenvalue exceeds `1e-6`**;
+- for degenerate clusters, compare the basis-independent aggregate instead,
+  namely the diagonal of the cluster's spectral projector, which is the sum of
+  participation over the cluster and is unique;
+- compare mode-shape **angles relative to the largest-magnitude entry of that
+  mode**, since the global phase of an eigenvector is arbitrary. Magnitudes
+  are already comparable because they are normalized to the per-mode maximum.
+
+### 9.4 Test list
+
+- Kundur, both variants: inter-area damping sign, the three electromechanical
+  frequencies and damping ratios above, and the participation-based separation
+  of local from inter-area modes
+- engine and Python `A_sys` against golden `A_sys`, which isolates a reduction
+  error from an eigensolve error
+- engine and Python eigenvalues against golden, sorted by descending real part
+  then imaginary part
+- participation factors against golden, under the section 9.3 rules
+- Python shift-invert against Python dense, on the modes within a radius of
+  sigma
+- residual `||A_sys v - lambda v||` for every returned pair, which is
+  implementation-independent and does not depend on the goldens at all
+
+Tolerances, grounded in the measurements above rather than guessed: `A_sys`
+relative error below `1e-14`, eigenvalues below `1e-12` relative to the
+spectral radius, participation factors for simple modes `atol=1e-6`. The
+residual check must hold unconditionally.
+
+### 9.5 A defect found while validating: NaN in the `py_*` fixture
+
+`example/py_val.dat` contains **3,819 NaN entries**, about 5% of the file. They
+are not scattered: they occupy exactly three equations (`EQ03`, `EQ07`, `EQ09`)
+of every one of the 36 exciters in the case, across all four generator types.
+The `test_*` fixture, which uses a different 7-equation exciter model, is
+clean; the affected model has 21 equations.
+
+MATLAB would have consumed this silently. `importdata` and `spconvert` accept
+NaN, and `eig` of a matrix containing NaN returns an all-NaN spectrum. Octave
+happens to refuse it at parse time, which is how it surfaced.
+
+Consequences:
+
+- **`py_*` is quarantined.** It cannot serve as a fixture until this is fixed.
+- This needs a **separate bug report against `stepss-ramses`**, out of scope for
+  this design. One hypothesis worth checking first: `adjust_Jac_TC`
+  (`src/core/simul_decomp.f90:3986-4025`) divides each differential row by its
+  stored time constant, so a zero time constant on those three exciter states
+  would produce exactly this pattern. Unverified.
+- The Python and engine implementations should **reject non-finite Jacobian
+  entries with a clear error** rather than propagating them into an all-NaN
+  spectrum, which is what the tool does today.
 
 ## 10. Documentation
 
@@ -430,7 +543,8 @@ House style applies: no em-dashes in any of these repositories.
 
 ## 11. Sequencing
 
-1. Capture and commit the MATLAB goldens (section 9.1). Blocking.
+1. Capture and commit the goldens through Octave (section 9.2), including the
+   Kundur exports for both variants. No longer blocked on MATLAB availability.
 2. Engine: refactor `dump_jacobian`, add `solve_small_signal`, the `EIG`
    disturbance, the three C entries and `$EIG_MAX_STATES`. Validate `A_sys`
    against golden before touching the eigensolve.
@@ -449,7 +563,9 @@ section 6 is the interface they agree on.
 
 | Risk | Mitigation |
 |---|---|
-| `dgeev` conjugate-pair unpacking of `VL` produces plausible but wrong participation factors | Golden participation factors plus the residual check; validate `A_sys` separately first so a reduction bug cannot masquerade as an unpacking bug |
+| `dgeev` conjugate-pair unpacking of `VL` produces plausible but wrong participation factors | Golden participation factors plus the residual check; validate `A_sys` separately first so a reduction bug cannot masquerade as an unpacking bug; the Kundur local-mode separation of section 9.1 fails visibly if this is wrong |
+| Degenerate eigenvalues make per-mode participation factors basis-dependent, so a naive golden comparison fails on correct code | Section 9.3: compare only simple modes, use the cluster spectral projector otherwise |
+| Non-finite entries in an exported Jacobian propagate silently to an all-NaN spectrum, as they do today | Reject non-finite entries at parse time in both implementations (section 9.5) |
 | Engine and Python implementations diverge over time | Shared fixtures and goldens in CI (section 9) |
 | `gy` singular, DAE not index-1 | Detect the KLU factorization failure and abort with a message naming the cause |
 | Dense memory blowup | `$EIG_MAX_STATES`, default 5000, with the memory formula documented |
