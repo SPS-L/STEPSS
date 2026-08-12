@@ -61,3 +61,24 @@ Rules for keeping this uniform:
 - **`download-artifact@v8` errors on a digest mismatch** where earlier versions only warned (`digest-mismatch` defaults to `error`). A corrupted artifact now fails the run instead of passing quietly. Do not downgrade this to silence a red run; investigate the artifact.
 - **`checkout@v6+` stores persisted credentials in a separate file.** Workflows that `git push` in a later step rely on those credentials rather than passing a token explicitly — currently java-ui `release.yml`, uramses `sync-ramses-release.yml` and python-ui `sync-upstream-release.yml`. Those are the runs to check first after any `checkout` bump.
 - **Bumping actions in a release workflow does not test it.** Codegen, dyngraph, ramses and java-ui only run their release workflow on `release`/`workflow_dispatch`, and a manual dispatch of java-ui's *always publishes* a release; python-ui `python-publish.yml` publishes to PyPI. Those paths get exercised by the next genuine release, not by a test run.
+
+## Secrets and cross-repo contracts
+
+Every cross-repo call uses one secret name, **`STEPSS_TOKEN`**, held in each repo that needs it. It is what ramses dispatches to uramses and python-ui with, what uramses and python-ui read upstream releases with, and what java-ui checks out and re-pins components with. It is the **only** configured secret referenced anywhere in `stepss-*`; anything else that looks like one is GitHub's built-in token, spelled `${{ github.token }}` everywhere. Verify both halves with:
+
+```sh
+grep -rho 'secrets\.[A-Z_]*' stepss-*/.github/workflows/*.yml | sort -u   # expect STEPSS_TOKEN alone
+```
+
+Keeping the built-in on one spelling is the point: `${{ secrets.GITHUB_TOKEN }}` is the same value, but mixing the two spellings makes that grep answer "which of these is a real secret?" wrongly, which is how three divergent PAT names went unnoticed. PyPI and Pages publishing use OIDC trusted publishers (`id-token: write`) and no token at all; a trusted publisher binds to the workflow **filename**, so renaming a publishing workflow breaks it.
+
+Two failure modes to know about, because neither is loud:
+
+- **A dispatch under a name the repo has no secret for 401s**, and the downstream simply never hears about the release. Nothing fails on the receiving side, because nothing arrives. When renaming or rotating, change the workflow reference and the repository secret in the same pass, in every repo.
+- **Release-asset names are a contract between two repos.** RAMSES publishes `ramses-libs-{linux,windows,macos-arm64}-<ver>.zip` and python-ui's `tools/update_ramses_libs.sh` hard-fails when one is missing. Renaming assets on one side alone breaks every sync, and a renamed asset exists only on releases cut *after* the rename, so older tags stop being re-syncable.
+
+## Licensing is per component, not per platform
+
+STEPSS is the umbrella. The two user interfaces, **stepss-java-ui** and **stepss-python-ui**, are Apache 2.0, as are uramses, eigenanalysis, cg-studio and dyngraph (RamsesNN is MIT). The engines are not: **RAMSES** is the property of the University of Liège and is proprietary, free for non-commercial use and capped at 1000 buses and 2 cores; **Helios** and **CODEGEN** are under Academic Public Licenses. `getting-started/license.md` in stepss-docs is the single owner of these facts.
+
+Two consequences: never describe STEPSS as a whole as Apache 2.0, and never apply a blanket find-and-replace to a bundled licence file. The licence texts under `stepss-java-ui/src/my/ramses/` each name their own component as "the Software", and a rename that swept through them once left the RAMSES and CODEGEN licences both claiming to govern the Apache-2.0 Python package.
