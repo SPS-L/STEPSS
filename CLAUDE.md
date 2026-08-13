@@ -60,11 +60,11 @@ Rules for keeping this uniform:
 - **A green run is not proof the warning is gone.** Deprecation notices surface as run *annotations*, not as log lines or failures. Check with `gh run view <run-id> --repo SPS-L/<repo>` and read the `ANNOTATIONS` section — a clean run prints none.
 - **`download-artifact@v8` errors on a digest mismatch** where earlier versions only warned (`digest-mismatch` defaults to `error`). A corrupted artifact now fails the run instead of passing quietly. Do not downgrade this to silence a red run; investigate the artifact.
 - **`checkout@v6+` stores persisted credentials in a separate file.** Workflows that `git push` in a later step rely on those credentials rather than passing a token explicitly — currently java-ui `release.yml`, uramses `sync-ramses-release.yml` and python-ui `sync-upstream-release.yml`. Those are the runs to check first after any `checkout` bump.
-- **Bumping actions in a release workflow does not test it.** Codegen, dyngraph, ramses and java-ui only run their release workflow on `release`/`workflow_dispatch`, and a manual dispatch of java-ui's *always publishes* a release; python-ui `python-publish.yml` publishes to PyPI. Those paths get exercised by the next genuine release, not by a test run.
+- **Bumping actions in a release workflow does not test it.** Codegen, dyngraph and ramses only run their release workflow on `release`/`workflow_dispatch`, and java-ui's runs on `repository_dispatch`/`workflow_dispatch` — where a manual dispatch *always publishes* a release; python-ui `python-publish.yml` publishes to PyPI. Those paths get exercised by the next genuine release, not by a test run.
 
 ## Secrets and cross-repo contracts
 
-Every cross-repo call uses one secret name, **`STEPSS_TOKEN`**, held in each repo that needs it. It is what ramses dispatches to uramses and python-ui with, what uramses and python-ui read upstream releases with, and what java-ui checks out and re-pins components with. It is the **only** configured secret referenced anywhere in `stepss-*`; anything else that looks like one is GitHub's built-in token, spelled `${{ github.token }}` everywhere. Verify both halves with:
+Every cross-repo call uses one secret name, **`STEPSS_TOKEN`**, held in each repo that needs it. It is what ramses dispatches to uramses and python-ui with, what ramses, helios, dyngraph and codegen dispatch to java-ui with, what uramses and python-ui read upstream releases with, and what java-ui checks out and re-pins components with. It is the **only** configured secret referenced anywhere in `stepss-*`; anything else that looks like one is GitHub's built-in token, spelled `${{ github.token }}` everywhere. Verify both halves with:
 
 ```sh
 grep -rho 'secrets\.[A-Z_]*' stepss-*/.github/workflows/*.yml | sort -u   # expect STEPSS_TOKEN alone
@@ -75,6 +75,13 @@ Keeping the built-in on one spelling is the point: `${{ secrets.GITHUB_TOKEN }}`
 Two failure modes to know about, because neither is loud:
 
 - **A dispatch under a name the repo has no secret for 401s**, and the downstream simply never hears about the release. Nothing fails on the receiving side, because nothing arrives. When renaming or rotating, change the workflow reference and the repository secret in the same pass, in every repo.
+- **java-ui is now dispatch-driven, and dispatches do not retry.** It used to re-pin its five components off a daily schedule, which quietly absorbed any lost dispatch within 24 h. It now runs only on `repository_dispatch` from ramses, helios, dyngraph and codegen (uramses is covered by the ramses dispatch, since it only ever releases under the same tag), so a 401 or a dropped event means java-ui silently stops tracking that component until someone runs it by hand. A red `notify-java-ui` in a component repo is a real failure. Check which repos actually hold the secret before assuming an edge works:
+  ```sh
+  for r in ramses helios dyngraph Codegen; do
+    printf '%-10s ' "$r"; gh api "repos/SPS-L/stepss-$r/actions/secrets" --jq .total_count
+  done
+  ```
+- **The ramses → java-ui edge is ordered, not immediate.** java-ui pins ramses *and* uramses, and ramses dispatches to both java-ui and uramses from the same `publish` job, so java-ui wakes several minutes before uramses has published its matching tag. java-ui's first step waits for that tag (15 min ceiling, then fails loudly) so the two pins move together. Do not "optimise" that wait away, and do not let a uramses sync failure fall through to a bump.
 - **Release-asset names are a contract between two repos.** RAMSES publishes `ramses-libs-{linux,windows,macos-arm64}-<ver>.zip` and python-ui's `tools/update_ramses_libs.sh` hard-fails when one is missing. Renaming assets on one side alone breaks every sync, and a renamed asset exists only on releases cut *after* the rename, so older tags stop being re-syncable.
 
 ## Eigenanalysis moved into the engine
