@@ -60,7 +60,7 @@ Rules for keeping this uniform:
 - **A green run is not proof the warning is gone.** Deprecation notices surface as run *annotations*, not as log lines or failures. Check with `gh run view <run-id> --repo SPS-L/<repo>` and read the `ANNOTATIONS` section — a clean run prints none.
 - **`download-artifact@v8` errors on a digest mismatch** where earlier versions only warned (`digest-mismatch` defaults to `error`). A corrupted artifact now fails the run instead of passing quietly. Do not downgrade this to silence a red run; investigate the artifact.
 - **`checkout@v6+` stores persisted credentials in a separate file.** Workflows that `git push` in a later step rely on those credentials rather than passing a token explicitly — currently java-ui `release.yml`, uramses `sync-ramses-release.yml` and python-ui `sync-upstream-release.yml`. Those are the runs to check first after any `checkout` bump.
-- **Bumping actions in a release workflow does not test it.** Codegen, dyngraph and ramses only run their release workflow on `release`/`workflow_dispatch`, and java-ui's runs on `repository_dispatch`/`workflow_dispatch` — where a manual dispatch *always publishes* a release; python-ui `python-publish.yml` publishes to PyPI. Those paths get exercised by the next genuine release, not by a test run.
+- **Bumping actions in a release workflow does not test it.** Codegen, dyngraph and ramses only run their release workflow on `release`/`workflow_dispatch`, and java-ui's runs on `repository_dispatch`/`workflow_dispatch`, where a manual dispatch *always publishes* a release; python-ui `python-publish.yml` publishes to PyPI. Those paths get exercised by the next genuine release, not by a test run.
 
 ## Secrets and cross-repo contracts
 
