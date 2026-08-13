@@ -77,6 +77,23 @@ Two failure modes to know about, because neither is loud:
 - **A dispatch under a name the repo has no secret for 401s**, and the downstream simply never hears about the release. Nothing fails on the receiving side, because nothing arrives. When renaming or rotating, change the workflow reference and the repository secret in the same pass, in every repo.
 - **Release-asset names are a contract between two repos.** RAMSES publishes `ramses-libs-{linux,windows,macos-arm64}-<ver>.zip` and python-ui's `tools/update_ramses_libs.sh` hard-fails when one is missing. Renaming assets on one side alone breaks every sync, and a renamed asset exists only on releases cut *after* the rename, so older tags stop being re-syncable.
 
+## Eigenanalysis moved into the engine
+
+Small-signal stability analysis is performed by RAMSES, triggered by the `EIG`
+disturbance or the `run_ssa` C entry. **The MATLAB tool that used to do it is
+retired.** Do not reintroduce it, document it as an alternative, or describe
+`stepss-eigenanalysis` as a tool a user installs: that repository now holds the
+reference spectra and the validation suite the engine is checked against, and
+its tests need neither MATLAB nor a RAMSES licence.
+
+The one MATLAB-adjacent thing that remains is `capture_golden.m`, which
+regenerates the reference data and runs under GNU Octave. It is internal
+tooling, not a user path.
+
+`stepss-java-ui` still contains the old MATLAB launcher in `RamsesUI.java`.
+That is a known leftover pending removal, not a supported route; its
+`examples/kundur-ssa/` README says so explicitly.
+
 ## Licensing is per component, not per platform
 
 STEPSS is the umbrella. The two user interfaces, **stepss-java-ui** and **stepss-python-ui**, are Apache 2.0, as are uramses, eigenanalysis, cg-studio and dyngraph (RamsesNN is MIT). The engines are not: **RAMSES** is the property of the University of Liège and is proprietary, free for non-commercial use and capped at 1000 buses and 2 cores; **Helios** and **CODEGEN** are under Academic Public Licenses. `getting-started/license.md` in stepss-docs is the single owner of these facts.
