@@ -239,13 +239,34 @@ loudly rather than silently misparsing.
 
 ```
 # STEPSS SSA modes v1
-# nstates <Nx> nalg <Na> time <t> real_limit <r> pf_threshold <p>
-#   index                       re                       im                     zeta                  freq_hz dom
+# nstates <Nx> nalg <Na> time <t> real_limit <r> pf_threshold <p> gap_tol <g>
+#   index                       re                       im                     zeta                  freq_hz dom smp
 ```
 
-One line per mode, format `(i8,1x,4(en24.15,1x),i2)`: index, real part,
-imaginary part, damping ratio, frequency in Hz, and a dominance flag (1 when
-`Re(lambda) > real_limit`). All modes are written; the flag records the filter
+One line per mode, format `(i8,1x,4(en24.15,1x),i2,1x,i2)`: index, real part,
+imaginary part, damping ratio, frequency in Hz, a dominance flag (1 when
+`Re(lambda) > real_limit`), and a **simplicity flag**.
+
+**The simplicity flag exists because power system spectra are heavily
+degenerate.** Identical machine models with identical parameters produce
+identical poles: 20 of the 70 modes in the no-PSS Kundur case, 8 of 70 with the
+PSS. In a degenerate eigenspace the individual eigenvectors are not unique, so
+the participation factors and mode shape of such a mode are basis-dependent.
+They are real numbers that mean nothing physically and would come out
+differently on another LAPACK build. The flag is 1 when the gap from this
+eigenvalue to every other exceeds `gap_tol` (default `1e-6`, recorded in the
+header), and 0 otherwise. A front end must not present participation for a
+mode flagged 0 without saying it is basis-dependent.
+
+The MATLAB tool this replaces did neither. Its working `QZ` path computed and
+displayed participation identically for degenerate and simple modes, so a user
+browsing the Nordic fixture's 22-fold `lambda = -200` cluster saw 22 sets of
+arbitrary numbers presented as physical. Its `ARP` and `IRA` paths were worse:
+`cplx_unique` deleted every eigenvalue within `1e-8` of an earlier one, so a
+22-fold eigenvalue was reported as a single mode and 21 real eigenvalues were
+silently discarded. There is no prior behaviour worth preserving here.
+
+All modes are written; the dominance flag records the filter
 rather than applying it, so a front end can narrow the filter without
 re-running. Widening it past the `real_limit` used at run time is a different
 matter: the mode line is there, but the participation factors and mode shape
