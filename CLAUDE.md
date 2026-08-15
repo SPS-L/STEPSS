@@ -97,9 +97,22 @@ The one MATLAB-adjacent thing that remains is `capture_golden.m`, which
 regenerates the reference data and runs under GNU Octave. It is internal
 tooling, not a user path.
 
-`stepss-java-ui` still contains the old MATLAB launcher in `RamsesUI.java`.
-That is a known leftover pending removal, not a supported route; its
-`examples/kundur-ssa/` README says so explicitly.
+`stepss-java-ui` carries no MATLAB path at all: no launcher, no generated
+`.m`, no reference outside the archived design notes under
+`docs/superpowers/`. The removal is done, so do not add a caveat describing
+one as a known leftover, and do not go looking for the code to delete. This
+paragraph replaced exactly such a caveat, which outlived the launcher it
+described and then survived a rename that updated the filename in it without
+checking whether the sentence was still true.
+
+The Java interface's package is `my.stepss` and its main class `StepssUI`, as
+of v3.74.7. RAMSES keeps its own name wherever it means the engine, so
+`ramsesLicense.txt`, `ramsesExec`, `toolchain.ramses()` and `ramses.version`
+are all correct and not leftovers. One string is deliberately stale: the
+preferences node is still `my.ramses.RamsesUI`, pinned as a literal, because
+it is what installed copies already have on disk and renaming it would forget
+every user's theme, window and working directory and re-prompt for the
+licence.
 
 ## Licensing is per component, not per platform
 
