@@ -62,3 +62,7 @@
 	path = stepss-apt
 	url = ../stepss-apt.git
 	branch = main
+[submodule "stepss-scoop"]
+	path = stepss-scoop
+	url = ../stepss-scoop.git
+	branch = main
