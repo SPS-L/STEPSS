@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Umbrella repo for the STEPSS simulation platform (https://stepss.sps-lab.org). It contains **no code of its own** — every `stepss-*` directory is a git submodule pointing at the matching repo in the SPS-L GitHub org, pinned to a commit and tracking that repo's default branch (a mix of `main` and `master`; see `.gitmodules`). Seven components are private: ramses, pfc, helios, Codegen, dyngraph, license-gen, test-systems.
+Umbrella repo for the STEPSS simulation platform (https://stepss.sps-lab.org). It contains **no code of its own**: every `stepss-*` directory is a git submodule pointing at the matching repo in the SPS-L GitHub org, pinned to a commit and tracking that repo's default branch (a mix of `main` and `master`; see `.gitmodules`). Seven components are private: ramses, pfc, helios, Codegen, dyngraph, license-gen, test-systems.
 
 Submodule URLs in `.gitmodules` are **relative** (`../<name>.git`) so the repo works over both SSH and HTTPS. Keep them relative when adding a component.
 
@@ -25,10 +25,20 @@ git submodule add -b <default-branch> ../<repo-name>.git <repo-name>
 
 ## Working in components
 
-- Code changes belong in the component repos, not here. Work inside `stepss-<name>/` as a normal git repo: commit and push there first, then `git add stepss-<name>` and commit the pointer bump here. Never pin a commit that hasn't been pushed to the component's remote — it breaks cloning for everyone else.
-- Several components (cg-studio, docs, helios, ramses, uramses, userguide) have their own `CLAUDE.md`; those apply when working inside them.
-- A commit touching a `stepss-*` path in this repo is only ever a pointer (gitlink) change. If `git status` here shows a component as modified, that's uncommitted work inside the component — resolve it there.
-- Never commit `.claude/` directories — one stray committed gitlink under `.claude/worktrees/` in a component previously broke `git clone --recurse-submodules` for the whole umbrella.
+- Code changes belong in the component repos, not here. Work inside `stepss-<name>/` as a normal git repo: commit and push there first, then `git add stepss-<name>` and commit the pointer bump here. Never pin a commit that hasn't been pushed to the component's remote, because that breaks cloning for everyone else.
+- Most components have their own `CLAUDE.md`, and those apply when working inside them: cg-studio, Codegen, docs, dyngraph, helios, python-ui, ramses, test-systems, uramses, userguide. The six without one are java-ui, pfc, license-gen, eigenanalysis, RamsesNN and apt. That list goes stale every time a component gains one, so check rather than trust it:
+  ```sh
+  for d in stepss-*/; do [ -f "$d/CLAUDE.md" ] && echo "${d%/}"; done
+  ```
+- A commit touching a `stepss-*` path in this repo is only ever a pointer (gitlink) change. If `git status` here shows a component as modified, that's uncommitted work inside the component; resolve it there.
+- Never commit `.claude/` directories: one stray committed gitlink under `.claude/worktrees/` in a component previously broke `git clone --recurse-submodules` for the whole umbrella. A component should gitignore `/.claude/` and `.mcp.json`, and a new one needs both lines before its first commit, but not every component has them yet: pfc has neither, and helios, license-gen and test-systems cover `.claude` and not `.mcp.json`. Check before assuming you are protected:
+  ```sh
+  # prints every component missing one of the two lines
+  for d in stepss-*/; do
+    grep -q 'claude' "$d.gitignore" 2>/dev/null &&
+      grep -q 'mcp.json' "$d.gitignore" 2>/dev/null || echo "${d%/}"
+  done
+  ```
 
 ## CI workflows
 
@@ -46,7 +56,7 @@ Every component's workflows live in its own repo, but the action versions are ke
 | `actions/deploy-pages` | `@v5` |
 | `softprops/action-gh-release` | `@v3` |
 | `msys2/setup-msys2` | `@v2` |
-| `pypa/gh-action-pypi-publish` | `@release/v1` (rolling tag — leave as is) |
+| `pypa/gh-action-pypi-publish` | `@release/v1` (rolling tag, leave as is) |
 
 Pin the **major** only (`@v7`, not `@v7.0.1`) so patch fixes arrive without a commit. `pypa/gh-action-pypi-publish` is the one exception: upstream publishes it through a rolling `release/v1` branch.
 
@@ -57,9 +67,9 @@ Rules for keeping this uniform:
   curl -s https://raw.githubusercontent.com/actions/download-artifact/v8/action.yml | grep using:
   ```
   Anything reporting `node20` is deprecated; GitHub force-runs it on Node 24 and annotates every run.
-- **A green run is not proof the warning is gone.** Deprecation notices surface as run *annotations*, not as log lines or failures. Check with `gh run view <run-id> --repo SPS-L/<repo>` and read the `ANNOTATIONS` section — a clean run prints none.
+- **A green run is not proof the warning is gone.** Deprecation notices surface as run *annotations*, not as log lines or failures. Check with `gh run view <run-id> --repo SPS-L/<repo>` and read the `ANNOTATIONS` section; a clean run prints none.
 - **`download-artifact@v8` errors on a digest mismatch** where earlier versions only warned (`digest-mismatch` defaults to `error`). A corrupted artifact now fails the run instead of passing quietly. Do not downgrade this to silence a red run; investigate the artifact.
-- **`checkout@v6+` stores persisted credentials in a separate file.** Workflows that `git push` in a later step rely on those credentials rather than passing a token explicitly — currently java-ui `release.yml`, uramses `sync-ramses-release.yml` and python-ui `sync-upstream-release.yml`. Those are the runs to check first after any `checkout` bump.
+- **`checkout@v6+` stores persisted credentials in a separate file.** Workflows that `git push` in a later step rely on those credentials rather than passing a token explicitly: currently java-ui `release.yml`, uramses `sync-ramses-release.yml` and python-ui `sync-upstream-release.yml`. Those are the runs to check first after any `checkout` bump.
 - **Bumping actions in a release workflow does not test it.** Codegen, dyngraph and ramses only run their release workflow on `release`/`workflow_dispatch`, and java-ui's runs on `repository_dispatch`/`workflow_dispatch`, where a manual dispatch *always publishes* a release; python-ui `python-publish.yml` publishes to PyPI. Those paths get exercised by the next genuine release, not by a test run.
 
 ## Secrets and cross-repo contracts
@@ -71,11 +81,15 @@ grep -rho 'secrets\.[A-Z_]*' stepss-*/.github/workflows/*.yml | sort -u
 # expect STEPSS_TOKEN and APT_GPG_PRIVATE_KEY, and nothing else
 ```
 
-**`APT_GPG_PRIVATE_KEY` is the one other configured secret, and it is not an exception to the rule.** It is a signing key rather than a credential for reaching another repository: it lives in `stepss-apt` alone, nothing else can use it, and there is nothing for it to share a name with. Do not fold it into `STEPSS_TOKEN`, and do not add a third name without the same justification. Its public half is committed as `stepss-apt/sps-l-archive-keyring.asc`, and the two must move together: users install the committed half and never touch it again, so rotating the secret without committing the new `.asc` breaks `apt update` for every one of them. The publish workflow refuses to run when the two fingerprints disagree, and warns a year before the key expires, which is the other way this breaks for everybody at once.
+**`APT_GPG_PRIVATE_KEY` is the one other configured secret, and it is not an exception to the rule.** It is a signing key rather than a credential for reaching another repository: it lives in `stepss-apt` alone, nothing else can use it, and there is nothing for it to share a name with. Do not fold it into `STEPSS_TOKEN`, and do not add a third name without the same justification.
+
+Its public half belongs beside it, committed as `stepss-apt/sps-l-archive-keyring.asc`, and the two must always move together: users install the committed half once and never touch it again, so rotating the secret without committing the matching `.asc` breaks `apt update` for every one of them. The publish workflow refuses to run when the two fingerprints disagree, and warns a year before the key expires, which is the other way this breaks for everybody at once.
+
+**Neither half exists yet.** The key has to be generated on a trusted machine, not in CI, and `stepss-apt/README.md` carries the commands. Until both are in place the publish workflow stops at its first step and says which is missing, so the archive is not serving and every `stepss-release` dispatch from java-ui lands on a red run. That is the intended behaviour, not a bug to route around: an unsigned archive is one apt refuses anyway.
 
 Keeping the built-in on one spelling is the point: `${{ secrets.GITHUB_TOKEN }}` is the same value, but mixing the two spellings makes that grep answer "which of these is a real secret?" wrongly, which is how three divergent PAT names went unnoticed. PyPI and Pages publishing use OIDC trusted publishers (`id-token: write`) and no token at all; a trusted publisher binds to the workflow **filename**, so renaming a publishing workflow breaks it.
 
-Two failure modes to know about, because neither is loud:
+Five failure modes to know about, because none of them is loud:
 
 - **A dispatch under a name the repo has no secret for 401s**, and the downstream simply never hears about the release. Nothing fails on the receiving side, because nothing arrives. When renaming or rotating, change the workflow reference and the repository secret in the same pass, in every repo.
 - **java-ui is now dispatch-driven, and dispatches do not retry.** It used to re-pin its five components off a daily schedule, which quietly absorbed any lost dispatch within 24 h. It now runs only on `repository_dispatch` from ramses, helios, dyngraph and codegen (uramses is covered by the ramses dispatch, since it only ever releases under the same tag), so a 401 or a dropped event means java-ui silently stops tracking that component until someone runs it by hand. A red `notify-java-ui` in a component repo is a real failure. Check which repos actually hold the secret before assuming an edge works:
@@ -86,6 +100,7 @@ Two failure modes to know about, because neither is loud:
   ```
 - **The ramses → java-ui edge is ordered, not immediate.** java-ui pins ramses *and* uramses, and ramses dispatches to both java-ui and uramses from the same `publish` job, so java-ui wakes several minutes before uramses has published its matching tag. java-ui's first step waits for that tag (15 min ceiling, then fails loudly) so the two pins move together. Do not "optimise" that wait away, and do not let a uramses sync failure fall through to a bump.
 - **Release-asset names are a contract between two repos.** RAMSES publishes `ramses-libs-{linux,windows,macos-arm64}-<ver>.zip` and python-ui's `tools/update_ramses_libs.sh` hard-fails when one is missing. Renaming assets on one side alone breaks every sync, and a renamed asset exists only on releases cut *after* the rename, so older tags stop being re-syncable.
+- **The java-ui → apt edge is the one dispatch with a fallback, and it is deliberate.** It fires from inside the `deb` leg of java-ui's `bundles` matrix, immediately after the `.deb` is attached, rather than from a job that `needs: [bundles]`: that matrix is `fail-fast: false`, so its aggregate result is a failure whenever any platform fails and a dependent job would be skipped instead of run. v3.74.8 published a `.deb` and a `.dmg` and no `.msi`, and a dispatch hanging off the matrix would have skipped that release entirely. stepss-apt then carries a weekly `schedule:` so a dropped dispatch costs at most a week rather than forever, which is affordable only because the run is stateless and rebuilds the same site from the same releases. Do not move the dispatch out of the leg, and do not remove that schedule.
 
 ## Eigenanalysis moved into the engine
 
