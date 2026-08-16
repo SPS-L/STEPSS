@@ -64,11 +64,14 @@ Rules for keeping this uniform:
 
 ## Secrets and cross-repo contracts
 
-Every cross-repo call uses one secret name, **`STEPSS_TOKEN`**, held in each repo that needs it. It is what ramses dispatches to uramses and python-ui with, what ramses, helios, dyngraph and codegen dispatch to java-ui with, what uramses and python-ui read upstream releases with, and what java-ui checks out and re-pins components with. It is the **only** configured secret referenced anywhere in `stepss-*`; anything else that looks like one is GitHub's built-in token, spelled `${{ github.token }}` everywhere. Verify both halves with:
+Every cross-repo call uses one secret name, **`STEPSS_TOKEN`**, held in each repo that needs it. It is what ramses dispatches to uramses and python-ui with, what ramses, helios, dyngraph and codegen dispatch to java-ui with, what java-ui dispatches to apt with, what uramses and python-ui read upstream releases with, and what java-ui checks out and re-pins components with. It is the only **token** anywhere in `stepss-*`; anything else that looks like one is GitHub's built-in token, spelled `${{ github.token }}` everywhere. Verify both halves with:
 
 ```sh
-grep -rho 'secrets\.[A-Z_]*' stepss-*/.github/workflows/*.yml | sort -u   # expect STEPSS_TOKEN alone
+grep -rho 'secrets\.[A-Z_]*' stepss-*/.github/workflows/*.yml | sort -u
+# expect STEPSS_TOKEN and APT_GPG_PRIVATE_KEY, and nothing else
 ```
+
+**`APT_GPG_PRIVATE_KEY` is the one other configured secret, and it is not an exception to the rule.** It is a signing key rather than a credential for reaching another repository: it lives in `stepss-apt` alone, nothing else can use it, and there is nothing for it to share a name with. Do not fold it into `STEPSS_TOKEN`, and do not add a third name without the same justification. Its public half is committed as `stepss-apt/sps-l-archive-keyring.asc`, and the two must move together: users install the committed half and never touch it again, so rotating the secret without committing the new `.asc` breaks `apt update` for every one of them. The publish workflow refuses to run when the two fingerprints disagree, and warns a year before the key expires, which is the other way this breaks for everybody at once.
 
 Keeping the built-in on one spelling is the point: `${{ secrets.GITHUB_TOKEN }}` is the same value, but mixing the two spellings makes that grep answer "which of these is a real secret?" wrongly, which is how three divergent PAT names went unnoticed. PyPI and Pages publishing use OIDC trusted publishers (`id-token: write`) and no token at all; a trusted publisher binds to the workflow **filename**, so renaming a publishing workflow breaks it.
 
@@ -125,4 +128,6 @@ enumeration silently drops whatever is added later.
 
 STEPSS is the umbrella. The two user interfaces, **stepss-java-ui** and **stepss-python-ui**, are Apache 2.0, as are uramses, eigenanalysis, cg-studio and dyngraph (RamsesNN is MIT). The engines are not: **RAMSES** is the property of the University of Liège and is proprietary, free for non-commercial use and capped at 1000 buses and 2 cores; **Helios** and **CODEGEN** are under Academic Public Licenses. `getting-started/license.md` in stepss-docs is the single owner of these facts.
 
-Two consequences: never describe STEPSS as a whole as Apache 2.0, and never apply a blanket find-and-replace to a bundled licence file. The licence texts under `stepss-java-ui/src/my/ramses/` each name their own component as "the Software", and a rename that swept through them once left the RAMSES and CODEGEN licences both claiming to govern the Apache-2.0 Python package.
+Two consequences: never describe STEPSS as a whole as Apache 2.0, and never apply a blanket find-and-replace to a bundled licence file. The licence texts under `stepss-java-ui/src/my/stepss/` each name their own component as "the Software", and a rename that swept through them once left the RAMSES and CODEGEN licences both claiming to govern the Apache-2.0 Python package.
+
+Three places now restate this for people who never see a release page, and all three are summaries that must keep pointing at `getting-started/license.md` rather than drifting into second copies: `stepss-java-ui/packaging/linux/copyright`, which ships as `/usr/share/doc/stepss/copyright` in the `.deb`; the landing page at `apt.sps-lab.org`; and `Components: non-free` in `stepss-apt/conf/distributions`, which is the word every user copies into their own `.sources` file. `non-free` is deliberate: `main` is Debian's label for software meeting the Free Software Guidelines, which an archive carrying RAMSES does not.

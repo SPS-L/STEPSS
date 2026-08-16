@@ -58,3 +58,7 @@
 	path = stepss-test-systems
 	url = ../stepss-test-systems.git
 	branch = main
+[submodule "stepss-apt"]
+	path = stepss-apt
+	url = ../stepss-apt.git
+	branch = main
