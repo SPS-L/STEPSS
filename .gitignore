@@ -3,6 +3,15 @@
 .idea
 .vscode
 
+# Key material, in case it is exported here on the way to a repository secret.
+# This is a backstop, not a place to keep any of it: the APT archive's private
+# signing key belongs offline and in stepss-apt's APT_GPG_PRIVATE_KEY secret,
+# and nowhere else. Delete the local copy once it is backed up.
+secret.b64
+*.key
+*.pem
+*-private*.asc
+
 # Shell/user dotfiles leaked into the workspace by container home mounts
 .bash_profile
 .bashrc
