@@ -108,11 +108,18 @@ checking whether the sentence was still true.
 The Java interface's package is `my.stepss` and its main class `StepssUI`, as
 of v3.74.7. RAMSES keeps its own name wherever it means the engine, so
 `ramsesLicense.txt`, `ramsesExec`, `toolchain.ramses()` and `ramses.version`
-are all correct and not leftovers. One string is deliberately stale: the
-preferences node is still `my.ramses.RamsesUI`, pinned as a literal, because
-it is what installed copies already have on disk and renaming it would forget
-every user's theme, window and working directory and re-prompt for the
-licence.
+are all correct and not leftovers.
+
+The preferences node followed the package to `my.stepss.StepssUI`, and
+`PreferenceMigration` is what made that safe: on the first call to
+`preferences()` it copies **every** key out of the old `my.ramses.RamsesUI`
+node and only then removes it. The first-run flag moved in the same pass, from
+the empty string to `stepssFirstTime`, with its own migration. **Do not delete
+either migration.** Installations older than this still have the old node on
+disk, and a rename without the copy abandons every user's theme, window
+geometry, working directory and licence acceptance rather than moving them.
+Copying every key rather than an enumerated list is deliberate too: an
+enumeration silently drops whatever is added later.
 
 ## Licensing is per component, not per platform
 
