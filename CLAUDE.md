@@ -117,8 +117,32 @@ Five failure modes to know about, because none of them is loud:
 ## Eigenanalysis moved into the engine
 
 Small-signal stability analysis is performed by RAMSES, triggered by the `EIG`
-disturbance or the `run_ssa` C entry. **The MATLAB tool that used to do it is
-retired.** Do not reintroduce it, document it as an alternative, or describe
+disturbance or the `run_ssa` C entry. Both take a basename and nothing else.
+
+**The engine writes every mode into all three results files, and the
+interfaces decide which are worth showing.** From RAMSES 3.79 this is the
+contract across the whole platform, and it is worth stating here because it
+spans five repos and reads like an implementation detail in each of them.
+`real_limit` used to gate `_pf.dat` and `_ms.dat` while `_modes.dat` carried
+everything, so a mode a reader could see had no participation behind it and no
+mode shape, and widening the limit meant running the case again. It is now a
+live control in `stepss-java-ui`'s results window and a `dominant()` helper in
+the `stepss-python-ui` notebook, applied to results already in hand.
+`pf_threshold` became the `$PF_THRES` solver setting, a size guard on the one
+output quadratic in the state count. An `EIG` record still carrying either
+parameter is refused rather than ignored, because the values changed what the
+old engine wrote.
+
+The three file banners are at **v2**, and this matters to anything that parses
+them: v1 carried a `dom` column exactly where v2 puts `smp`, at the same width,
+so a positional reader that ignores the banner does not fail on the wrong
+version, it reports the simplicity flag as the dominance flag. `SsaModes` in
+java-ui and `read_modes` in the notebook both branch on the banner and refuse a
+version they do not know; keep any new consumer doing the same. Saved archives
+from older engines still open, which is why `Mode.dominant` is a nullable
+`Boolean` rather than a `boolean`.
+
+**The MATLAB tool that used to do it is retired.** Do not reintroduce it, document it as an alternative, or describe
 `stepss-eigenanalysis` as a tool a user installs: that repository now holds the
 reference spectra and the validation suite the engine is checked against, and
 its tests need neither MATLAB nor a RAMSES licence.
