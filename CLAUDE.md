@@ -142,6 +142,21 @@ version they do not know; keep any new consumer doing the same. Saved archives
 from older engines still open, which is why `Mode.dominant` is a nullable
 `Boolean` rather than a `boolean`.
 
+**A time constant of exactly zero is an algebraic constraint, not a state.**
+This spans the engine and everything that reads its Jacobian dump, which is
+why it is here and not only in `stepss-ramses/CLAUDE.md`. Device equations are
+written `tc*dx/dt = f`, so `tc = 0` degenerates the block to `f = 0`; the
+time-domain solver has always read it that way because it *multiplies* by `tc`
+to algebraize, while small-signal analysis *divides*. The analysis used to
+classify those rows from `eqtyp` alone, so `TR = 0` in an AVR record, which is
+what most real AVR data says, put +-Inf and NaN across the row and LAPACK refused
+the whole state matrix. `eq_is_differential` in `ssa.f90` is now
+the single decision, and the visible consequence is that **the state count is
+smaller than the number of equations naming a state**: the Cyprus grid-forming
+case reports 280 states, not 287, and the run logs the seven it demoted. Do not
+"restore" the missing states in an interface, and do not treat the `d`/`a`
+column of `<basename>_eqs.dat` as derivable from `eqtyp`.
+
 **The MATLAB tool that used to do it is retired.** Do not reintroduce it, document it as an alternative, or describe
 `stepss-eigenanalysis` as a tool a user installs: that repository now holds the
 reference spectra and the validation suite the engine is checked against, and
