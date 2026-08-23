@@ -144,9 +144,19 @@ them: v1 carried a `dom` column exactly where v2 puts `smp`, at the same width,
 so a positional reader that ignores the banner does not fail on the wrong
 version, it reports the simplicity flag as the dominance flag. `SsaModes` in
 java-ui and `read_modes` in the notebook both branch on the banner and refuse a
-version they do not know; keep any new consumer doing the same. Saved archives
-from older engines still open, which is why `Mode.dominant` is a nullable
-`Boolean` rather than a `boolean`.
+version they do not know; keep any new consumer doing the same.
+
+**java-ui reads v2 and refuses v1**, as of v3.81.2. It used to read both, so
+that an archive saved by an older engine still opened, and `Mode.dominant` was
+a nullable `Boolean` to carry v1's dominance column. That is gone: the field,
+the `real_limit`/`pf_threshold` header keys and the matching `SsaArchive`
+manifest fields with it. Two consequences worth knowing before "fixing" either.
+An `.ssa` archive written by a RAMSES older than 3.79 no longer opens at all,
+and the refusal names the version rather than guessing at a column that moved.
+And the Analysis tab's engine note is now a **warning before the run** rather
+than a caveat after it: `EngineVersion.writesReadableSsa` gates it, and an old
+engine still runs every other kind of study. `read_modes` in the notebook is
+a separate decision and still reads what it reads.
 
 **A time constant of exactly zero is an algebraic constraint, not a state.**
 This spans the engine and everything that reads its Jacobian dump, which is
@@ -185,16 +195,23 @@ of v3.74.7. RAMSES keeps its own name wherever it means the engine, so
 `ramsesLicense.txt`, `ramsesExec`, `toolchain.ramses()` and `ramses.version`
 are all correct and not leftovers.
 
-The preferences node followed the package to `my.stepss.StepssUI`, and
-`PreferenceMigration` is what made that safe: on the first call to
-`preferences()` it copies **every** key out of the old `my.ramses.RamsesUI`
-node and only then removes it. The first-run flag moved in the same pass, from
-the empty string to `stepssFirstTime`, with its own migration. **Do not delete
-either migration.** Installations older than this still have the old node on
-disk, and a rename without the copy abandons every user's theme, window
-geometry, working directory and licence acceptance rather than moving them.
-Copying every key rather than an enumerated list is deliberate too: an
-enumeration silently drops whatever is added later.
+The preferences node followed the package to `my.stepss.StepssUI`. A
+`PreferenceMigration` class made that free, copying every key out of the old
+`my.ramses.RamsesUI` node on the first call to `preferences()` and converting
+the first-run flag from the empty string to `stepssFirstTime`. **It was deleted
+in v3.81.2, deliberately, and must not be reintroduced.** This paragraph used to
+say the opposite in bold, so do not "restore" it on the strength of a stale
+sentence: the decision was taken with the cost stated, which is that any
+installation predating v3.74.7 starts as a fresh one, in the default theme,
+being asked to accept a licence it accepted years ago.
+
+`preferences()` is now one line returning `Preferences.userRoot().node(...)`,
+and the node name is still a literal rather than `getClass().getName()`, which
+is the part that does still matter: a stored-preferences key is a compatibility
+surface and must not follow a refactor on its own. The migration's third job
+went with it, dropping the seven session keys (window geometry, working
+directory, examples root) that old installations carry. Nothing reads them, so
+they sit inert in the abandoned node.
 
 ## Licensing is per component, not per platform
 
