@@ -66,3 +66,7 @@
 	path = stepss-scoop
 	url = ../stepss-scoop.git
 	branch = main
+[submodule "stepss-videos"]
+	path = stepss-videos
+	url = ../stepss-videos.git
+	branch = main
